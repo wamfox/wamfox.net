@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espresso Timer Configurator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Espresso Timer Configurator</h1>
+            <p class="text-gray-500 mt-2">Configure your shot timer settings via USB.</p>
+        </div>
+
+        <!-- Configuration Form -->
+        <div class="space-y-6">
+            <div>
+                <label for="numGroups" class="block text-sm font-medium text-gray-700 mb-1">Number of Groups</label>
+                <select id="numGroups" class="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    <option>1</option>
+                    <option>2</option>
+                    <option selected>3</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="minTime" class="block text-sm font-medium text-gray-700 mb-1">"Good" Shot Min Time (seconds)</label>
+                <input type="number" id="minTime" value="5" class="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+
+            <div>
+                <label for="maxTime" class="block text-sm font-medium text-gray-700 mb-1">"Good" Shot Max Time (seconds)</label>
+                <input type="number" id="maxTime" value="10" class="mt-1 block w-full bg-gray-50 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="mt-8">
+            <button id="connectButton" class="w-full inline-flex justify-center items-center px-4 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Connect & Send Configuration
+            </button>
+        </div>
+        
+        <!-- Status Message Area -->
+        <div id="status" class="mt-6 text-center text-sm text-gray-500 h-5"></div>
+
+    </div>
+
+    <script>
+        const connectButton = document.getElementById('connectButton');
+        const statusDiv = document.getElementById('status');
+        const numGroupsInput = document.getElementById('numGroups');
+        const minTimeInput = document.getElementById('minTime');
+        const maxTimeInput = document.getElementById('maxTime');
+
+        connectButton.addEventListener('click', async () => {
+            // Check if Web Serial is supported
+            if (!("serial" in navigator)) {
+                statusDiv.textContent = "Error: Web Serial API not supported.";
+                return;
+            }
+
+            let port;
+            try {
+                // Request a serial port from the user
+                port = await navigator.serial.requestPort();
+                statusDiv.textContent = "Connecting...";
+
+                // Open the port with a baud rate matching the Arduino
+                await port.open({ baudRate: 9600 });
+                statusDiv.textContent = "Connected. Sending config...";
+
+                // Prepare the configuration string
+                const numGroups = numGroupsInput.value;
+                const minTime = minTimeInput.value;
+                const maxTime = maxTimeInput.value;
+                
+                // Format: C:groups,min,max\n (e.g., C:3,5,10\n)
+                const configString = `C:${numGroups},${minTime},${maxTime}\n`;
+
+                // Get a writer and send the data
+                const writer = port.writable.getWriter();
+                const data = new TextEncoder().encode(configString);
+                await writer.write(data);
+                writer.releaseLock();
+                
+                statusDiv.textContent = "Configuration sent successfully!";
+
+            } catch (error) {
+                statusDiv.textContent = `Error: ${error.message}`;
+            } finally {
+                // Close the port when done
+                if (port) {
+                    await port.close();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
